@@ -8,9 +8,10 @@ license = "GPL-2.0-only"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+tokio = { version = "1.46", features = ["full"] }
 clap = { version = "4.5", features = ["derive"] }
 reqwest = { version = "0.12", features = ["blocking"] }
 
-lazy_static = "1.5"
-rand = "0.9"
+anyhow = "1.0"
+once_cell = "1.21"
 regex = "1.11"

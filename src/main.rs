@@ -16,7 +16,7 @@ fn curl_image(url: &str, file_name: &str) -> Result<(), Box<dyn Error>> {
 
 fn fetch_url(url: &str) -> Result<reqwest::blocking::Response, reqwest::Error> {
     // The user agent
-    let user_agent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36";
+    let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0";
     let client = reqwest::blocking::ClientBuilder::new()
         .user_agent(user_agent)
         .build()?;
@@ -153,7 +153,7 @@ fn main() {
 
     let mut images_seen: Vec<String> = Vec::new();
     let mut i = 1;
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     for link in links {
         if images_seen.contains(&link) {
             continue;
@@ -171,7 +171,7 @@ fn main() {
 
         curl_image(&link, &file_path).expect("Unable to download image");
 
-        let sleep_time = rand::Rng::gen_range(&mut rng, 2..7);
+        let sleep_time = rand::Rng::random_range(&mut rng, 2..7);
         std::thread::sleep(std::time::Duration::from_secs(sleep_time));
         i += 1;
     }

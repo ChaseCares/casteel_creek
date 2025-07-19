@@ -15,7 +15,6 @@ fn curl_image(url: &str, file_name: &str) -> Result<(), Box<dyn Error>> {
 }
 
 fn fetch_url(url: &str) -> Result<reqwest::blocking::Response, reqwest::Error> {
-    // The user agent
     let user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36 Edg/134.0.0.0";
     let client = reqwest::blocking::ClientBuilder::new()
         .user_agent(user_agent)
@@ -123,13 +122,10 @@ fn main() {
 
     lazy_static::lazy_static! {
         static ref COMPASS_LINKS_RE: regex::Regex = regex::Regex::new(r"[a-zA-Z/\d_\.:]*origin\.webp").unwrap();
-        static ref ZILLOW_LINKS_RE: regex::Regex = regex::Regex::new(r"https://photos.zillowstatic.com/fp/[\w\d]*-uncropped_scaled_within_1536_1152\.jpg").unwrap();
     }
 
     let links = if args.url.contains("compass") {
         get_links(&COMPASS_LINKS_RE, &html)
-    } else if args.url.contains("zillow") {
-        get_links(&ZILLOW_LINKS_RE, &html)
     } else {
         println!("Unknown website");
         std::process::exit(1);
@@ -140,11 +136,6 @@ fn main() {
             regex::Regex::new(r"(</span>\.\.\.<span class=.[\s\w-]*.>)(.*)(</span></div><button)")
                 .unwrap();
         get_info(info_file_path, &html, &args.url, links.len(), &info_re)
-            .expect("Unable to get info");
-    } else if args.url.contains("zillow") {
-        let info_re =
-            regex::Regex::new(r"(\\.description\\.:\\.)(.*)(\\.,\\.whatILove\\.)").unwrap();
-        get_info(info_file_path, &html, &args.url, links.len() / 2, &info_re)
             .expect("Unable to get info");
     } else {
         println!("Unknown website");

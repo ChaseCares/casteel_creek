@@ -1,3 +1,15 @@
+#![warn(
+    clippy::all,
+    unsafe_code,
+    unused_extern_crates,
+    unused_import_braces,
+    unused_qualifications,
+    clippy::pedantic,
+    missing_debug_implementations,
+    trivial_casts,
+    trivial_numeric_casts
+)]
+
 use std::error::Error;
 use std::fs;
 
@@ -85,6 +97,9 @@ struct Args {
     name: String,
 
     #[arg(long)]
+    skip_images: bool,
+
+    #[arg(long)]
     url: String,
 }
 
@@ -96,25 +111,25 @@ fn main() {
     let base_dir = format!("{}/{}", args.output, args.name);
 
     if !std::path::Path::new(&format!("{base_dir}/images")).exists() {
-        std::fs::create_dir_all(format!("{base_dir}/images")).expect("Unable to create directory");
+        fs::create_dir_all(format!("{base_dir}/images")).expect("Unable to create directory");
     }
 
     let html = if args.url.contains("http") {
         match get_html(&args.url, true, Some(html_file_path)) {
             Ok(html) => html,
             Err(e) => {
-                println!("Unable to get html: {}", e);
+                println!("Unable to get html: {e}");
                 std::process::exit(1);
             }
         }
     } else {
         match fs::read_to_string(&args.url) {
             Ok(html) => {
-                std::fs::rename(&args.url, html_file_path).expect("Unable to rename file");
+                fs::rename(&args.url, html_file_path).expect("Unable to rename file");
                 html
             }
             Err(e) => {
-                println!("Unable to read html file: {}", e);
+                println!("Unable to read html file: {e}");
                 std::process::exit(1);
             }
         }
@@ -146,10 +161,8 @@ fn main() {
     let mut i = 1;
     let mut rng = rand::rng();
     for link in links {
-        if images_seen.contains(&link) {
-            continue;
-        } else {
-            println!("Downloading image: {}", link);
+        if !images_seen.contains(&link) {
+            println!("Downloading image: {link}");
             images_seen.push(link.clone());
         }
 

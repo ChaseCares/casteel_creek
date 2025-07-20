@@ -10,20 +10,26 @@
     trivial_numeric_casts
 )]
 
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
+
 use anyhow::{Context, Result};
 use clap::Parser;
 use once_cell::sync::Lazy;
 use regex::Regex;
 use reqwest::Client;
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
-use std::time::Duration;
+use serde::Serialize;
 use tokio::fs;
 
 static IMAGE_LINK_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r#""(https://[^"]*?origin\.webp)""#).unwrap());
-static INFO_RE: Lazy<Regex> = Lazy::new(|| {
-    Regex::new(r#"(?s)<span>Description</span>.*?<div class="[^"]*">(.*?)</div>"#).unwrap()
+static ST_CITY_STATE_ZIP_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"<title>(.*?), (.*?), (..) (\d\d\d\d\d) \| MLS #(\d*?) \| Compass</title>").unwrap()
+});
+
+static PRICE_RE: Lazy<Regex> = Lazy::new(|| {
+    Regex::new(r"propertyHistory-table-td.><div>\$([0-9,]+)</div></td></tr>").unwrap()
 });
 
 /// Command-line arguments structure.
@@ -49,6 +55,19 @@ struct Args {
     /// Delay in seconds between each download.
     #[arg(long, default_value_t = 2)]
     delay: u64,
+}
+
+#[derive(Serialize, Debug)]
+struct PropertyMetadata {
+    url: String,
+    description: Option<String>,
+    street: Option<String>,
+    city: Option<String>,
+    state: Option<String>,
+    zip: Option<String>,
+    mls: Option<String>,
+    price: Option<String>,
+    num_images: Option<String>,
 }
 
 /// Fetches HTML from a URL or reads it from a local file.
@@ -92,19 +111,53 @@ async fn download_file(client: &Client, url: &str, path: &Path) -> Result<()> {
 }
 
 /// Saves extracted metadata to an `info.txt` file.
-async fn save_metadata(html: &str, url: &str, num_images: usize, out_dir: &Path) -> Result<()> {
-    let mut info = format!("URL: {url}\n\n");
-    if let Some(caps) = INFO_RE.captures(html) {
-        if let Some(desc) = caps.get(1) {
-            info.push_str(&format!("Info: {}\n\n", desc.as_str().trim()));
+fn extract_metadata(html: &str, url: &str, num_images: usize) -> PropertyMetadata {
+    let mut property_metadata = PropertyMetadata {
+        url: format!("URL: {url}"),
+        description: None,
+        street: None,
+        city: None,
+        state: None,
+        zip: None,
+        mls: None,
+        price: None,
+        num_images: Some(format!("Number of unique images found: {num_images}")),
+    };
+
+    if let Some(caps) = PRICE_RE.captures(html) {
+        if let Some(price) = caps.get(1) {
+            property_metadata.price = Some(format!("Price: ${}", price.as_str()));
         }
     }
-    info.push_str(&format!("Number of unique images found: {num_images}"));
 
-    let info_path = out_dir.join("info.txt");
-    fs::write(&info_path, info)
+    if let Some(caps) = ST_CITY_STATE_ZIP_RE.captures(html) {
+        if let (Some(st), Some(city), Some(state), Some(zip), Some(mls)) = (
+            caps.get(1),
+            caps.get(2),
+            caps.get(3),
+            caps.get(4),
+            caps.get(5),
+        ) {
+            property_metadata.street = Some(format!("Street: {}", st.as_str()));
+            property_metadata.city = Some(format!("City: {}", city.as_str()));
+            property_metadata.state = Some(format!("State: {}", state.as_str()));
+            property_metadata.zip = Some(format!("Zip: {}", zip.as_str()));
+            property_metadata.mls = Some(format!("MLS: {}", mls.as_str()));
+        }
+    }
+
+    property_metadata
+}
+
+async fn save_metadata(property_metadata: &PropertyMetadata, path: &Path) -> Result<()> {
+    let info_path = path.join("info.txt");
+    let metadata_json = serde_json::to_string_pretty(property_metadata)
+        .context("Failed to serialize metadata to JSON")?;
+    fs::write(&info_path, metadata_json)
         .await
-        .context("Failed to write info file")?;
+        .context("Failed to write metadata to file")?;
+    println!("Metadata saved to {}", info_path.display());
+
     Ok(())
 }
 
@@ -130,7 +183,8 @@ async fn main() -> Result<()> {
         .context("Failed to save HTML file")?;
 
     let image_links = extract_unique_image_links(&html);
-    save_metadata(&html, &args.url, image_links.len(), &base_dir).await?;
+    let property_metadata = extract_metadata(&html, &args.url, image_links.len());
+    save_metadata(&property_metadata, &base_dir).await?;
     println!("Found {} unique images.", image_links.len());
 
     if args.skip_images {

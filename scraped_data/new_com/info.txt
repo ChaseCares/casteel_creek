@@ -1,0 +1,11 @@
+{
+  "url": "URL: https://www.compass.com/listing/1067-east-kent-road-winston-salem-nc-27104/1874772310108014537/\n\n",
+  "description": null,
+  "street": "Street: 1067 E Kent Rd",
+  "city": "City: Winston-Salem",
+  "state": "State: NC",
+  "zip": "Zip: 27104",
+  "mls": "MLS: 1186212",
+  "price": "Price: $6,500,000",
+  "num_images": "Number of unique images found: 44"
+}
